@@ -80,11 +80,18 @@ namespace Brainf_ck_Compiler_Engine
             //Console.WriteLine("code:\n\n++++++++++[>+++++++<-]>++.++++++++++[>+++<-]>-.\n"); 
             //Console.WriteLine("result:\n\n" + BrainFckCompiler.ParseBrainFckCodeToString("++++++++++[>+++++++<-]>++.++++++++++[>+++<-]>-."));
             //Console.WriteLine("\n=====================================================\n");
-            string brainCode = "pppppp++++++++++----------<<<<<<<<<<>>>>>>>>>>...,,,ppp---+++---ppp---";
-            //Console.WriteLine("test 1:\n" + "code " + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
-            
-            brainCode = "[+++]";
-            Console.WriteLine("test 2:\n" + "code " + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
+            string brainCode = "dbfskdhzggvlfbliff2983876347```+++--->>><<<,,,...-+-+-";
+            int testNum = 1;
+            Console.WriteLine($"test {testNum}:\n" + "code " + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
+            Console.WriteLine("\n");
+
+            brainCode = "[+++]"; testNum++;
+            Console.WriteLine($"test {testNum}:\n" + "code " + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
+            Console.WriteLine("\n");
+
+            brainCode = "+++ppp[+++[---]---]ppp+++"; testNum++;
+            Console.WriteLine($"test {testNum}:\n" + "code " + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
+            Console.WriteLine("\n");
         }
     }
 }

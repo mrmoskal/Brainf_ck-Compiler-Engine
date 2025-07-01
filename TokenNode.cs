@@ -17,7 +17,7 @@ namespace Brainf_ck_Compiler_Engine
         private TokenNode _innerScopeTokenList;
 
         // setters & getters:
-        public int Value { get => _value; }
+        public int Value { get => _value; set => _value = value; }
         public TOKEN_VALUE_TYPE ValType { get => _valType; }
 
         public TokenNode Next { get => _next; set => _next = value; }
@@ -31,16 +31,6 @@ namespace Brainf_ck_Compiler_Engine
             this._valType = valType;
             this._next = next;
             this._innerScopeTokenList = innerScopeTokenList;
-        }
-    
-        // functions:
-        public void MergeTokenVals(TokenNode other)
-        {
-            // merges values of tokens with same token value type.
-            if (this._valType != other.ValType || this._valType == TOKEN_VALUE_TYPE.LOOP_TOKEN || this._valType == TOKEN_VALUE_TYPE.NONE)
-                return;
-
-            this._value += other.Value;
         }
     }
 }

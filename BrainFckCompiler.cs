@@ -120,9 +120,9 @@ namespace Brainf_ck_Compiler_Engine
         // vars:
         private static readonly Dictionary<char, SYNTAX> _syntaxDict = SyntaxDict; // hash char to syntax - for tokenization. 
         private static readonly Dictionary<SYNTAX, TOKEN_VALUE_TYPE> _enumDict = EnumDict; // hash each relevent syntax enum value to token value enum.
-        
+
         private static SYNTAX _currSyntaxFlag = SYNTAX.NONE; // the current active flag.
-        private static int _currTokenVal = 0; // the current token value.
+        //private static int _currTokenVal = 0; // the current token value.
 
         // getters & setters:
         private static Dictionary<char, SYNTAX> SyntaxDict
@@ -178,7 +178,7 @@ namespace Brainf_ck_Compiler_Engine
 
             return newToken;
         }
-        private static (TokenNode, int, bool) SyntaxToToken(string syntaxStr, int charOffset, SYNTAX syntaxFlag, int tokenVal, TokenNode prevToken = null, TokenNode innerScope = null)
+        private static (TokenNode, int, bool) SyntaxToToken(SYNTAX syntaxFlag, int tokenVal, string syntaxStr, int charOffset, TokenNode prevToken = null)
         {
             TOKEN_VALUE_TYPE tokenType = _enumDict[syntaxFlag];
             switch (syntaxFlag)
@@ -196,7 +196,7 @@ namespace Brainf_ck_Compiler_Engine
                         );
 
                 case SYNTAX.LOOP_END:
-                    return (innerScope, charOffset, true);
+                    return (null, charOffset, true);
 
                 case SYNTAX.LOOP_START:
                     TokenNode newToken = GenerateToken(tokenVal: 0, tokenValType: tokenType, prevToken: prevToken);
@@ -214,84 +214,60 @@ namespace Brainf_ck_Compiler_Engine
         public static TokenNode GenerateTokenList(string syntaxStr, int offset = 0)
         {
             // returns a tokeniesed list from a given string of tokenable code.
+            // case: given syntax offset is out of bounds. -> return null.
+            if (offset > syntaxStr.Length - 1) 
+                return null; 
+            
+            // init token list & syntax flag:
             TokenNode tokenListHead = null, tokenCurrNode = null;
-            int initSyntaxFlagOffset = offset > syntaxStr.Length ? syntaxStr.Length - 1 : offset;
-            _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[initSyntaxFlagOffset]);
+            _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]);
 
-            bool isForceStop;
+            // move to first tokenable value:
             SYNTAX nextSyntaxFlag;
-            (TokenNode newToken, int updatedOffset, bool isForceStop) result = (null, 0, false);
-            for (isForceStop = false; offset < syntaxStr.Length && !isForceStop; offset++)
+            for (nextSyntaxFlag = _currSyntaxFlag; offset < syntaxStr.Length && nextSyntaxFlag == SYNTAX.NONE; offset++)
             {
-                nextSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]); // gset curr syntax flag.
+                nextSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]);
+            }
 
-                // increase token val (for compretion sake):
-                if (nextSyntaxFlag == _currSyntaxFlag)
+            // case: no tokenable value found. -> return null.
+            if (offset > syntaxStr.Length - 1 && nextSyntaxFlag == SYNTAX.NONE) 
+                return null;
+            if (nextSyntaxFlag == SYNTAX.NONE)
+                offset++;
+
+            // create token list head node:
+            _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]);
+            (TokenNode newToken, int updatedOffset, bool isForceStop) result = SyntaxToToken(
+                _currSyntaxFlag,
+                1,
+                syntaxStr,
+                offset
+            );
+            tokenListHead = result.newToken;
+            tokenCurrNode = tokenListHead;
+
+            // start tokenizing loop:
+            for (; offset < syntaxStr.Length && !result.isForceStop; offset++)
+            {
+                _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]);
+
+                if (_currSyntaxFlag == SYNTAX.NONE) continue;
+                if (tokenCurrNode.ValType == _enumDict[_currSyntaxFlag] && tokenCurrNode.ValType != TOKEN_VALUE_TYPE.LOOP_TOKEN)
                 {
-                    _currTokenVal++;
+                    tokenCurrNode.Value++;
                     continue;
                 }
 
-                // when syntax flag changes - create the token with the token value (which incremented up till now):
-                bool isInnerScope = _currSyntaxFlag == SYNTAX.LOOP_START;
                 result = SyntaxToToken(
+                    _currSyntaxFlag,
+                    1,
                     syntaxStr,
                     offset,
-                    _currSyntaxFlag,
-                    _currTokenVal,
-                    !isInnerScope ? tokenCurrNode : null,
-                    isInnerScope ? tokenCurrNode : null
+                    tokenCurrNode
                 );
-
-                // set & reset variables accordingly:
-                isForceStop = result.isForceStop;
-                offset = result.updatedOffset;
-                _currTokenVal = 1;
-                _currSyntaxFlag = nextSyntaxFlag;
-
-                // set current token (add head token if null):
-                if (result.newToken == null) continue; // skip null.
-
-                if (tokenListHead == null)
-                {
-                    // create list head.
-                    tokenListHead = result.newToken;
-                    continue;
-                }
-
-                if (tokenListHead != null && tokenListHead.Next == null)
-                {
-                    // link 
-                    tokenCurrNode = result.newToken;
-                    tokenListHead.Next = tokenCurrNode;
-                    continue;
-                }
-
                 tokenCurrNode.Next = result.newToken;
-                tokenCurrNode = tokenCurrNode.Next;
+                offset = result.updatedOffset;
             }
-
-            // generate last token (if there is one left):
-            if (_currTokenVal > 0 && !(_currSyntaxFlag == SYNTAX.NONE || _currSyntaxFlag == SYNTAX.LOOP_START))
-            {
-                result = SyntaxToToken(
-                    syntaxStr,
-                    offset,
-                    _currSyntaxFlag,
-                    _currTokenVal,
-                    _currSyntaxFlag != SYNTAX.LOOP_START ? tokenCurrNode : null,
-                    _currSyntaxFlag == SYNTAX.LOOP_START ? tokenCurrNode : null
-                );
-            }
-
-            // two possible edge cases (other then just returning a token list):
-            if (tokenListHead == null && result.newToken != null)
-            {
-                // case: no token other then the last token.
-                return result.newToken;
-            }
-
-            tokenCurrNode.Next = result.newToken; // make sure to add last token (if there is a token).
 
             // return final token list
             return tokenListHead;
