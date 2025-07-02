@@ -122,8 +122,8 @@ namespace Brainf_ck_Compiler_Engine
         private static readonly Dictionary<SYNTAX, TOKEN_VALUE_TYPE> _enumDict = EnumDict; // hash each relevent syntax enum value to token value enum.
 
         private static SYNTAX _currSyntaxFlag = SYNTAX.NONE; // the current active flag.
-        //private static int _currTokenVal = 0; // the current token value.
-
+        private static int _syntaxOffset = 0; // the offset of the current syntax element in syntax string.
+        
         // getters & setters:
         private static Dictionary<char, SYNTAX> SyntaxDict
         { 
@@ -163,7 +163,7 @@ namespace Brainf_ck_Compiler_Engine
 
             return _syntaxDict[syntaxChar];
         }
-        private static TokenNode GenerateToken(int tokenVal, TOKEN_VALUE_TYPE tokenValType, TokenNode prevToken = null, TokenNode innerScopeList = null)
+        private static TokenNode GenerateToken(int tokenVal, TOKEN_VALUE_TYPE tokenValType, TokenNode innerScopeList = null)
         {
             // init new token:
             TokenNode newToken = new TokenNode(
@@ -172,104 +172,96 @@ namespace Brainf_ck_Compiler_Engine
                 innerScopeTokenList: innerScopeList
             );
 
-            // return new token:
-            if (prevToken != null)  
-                prevToken.Next = newToken; // link to token list (if there is one).
-
             return newToken;
         }
-        private static (TokenNode, int, bool) SyntaxToToken(SYNTAX syntaxFlag, int tokenVal, string syntaxStr, int charOffset, TokenNode prevToken = null)
+        private static TokenNode SyntaxToToken(string syntaxStr, TokenNode prevToken = null)
         {
-            TOKEN_VALUE_TYPE tokenType = _enumDict[syntaxFlag];
-            switch (syntaxFlag)
+            // create token based of current syntax flag.
+            switch (_currSyntaxFlag)
             {
                 case SYNTAX.ADD:
                 case SYNTAX.SUB:
-                case SYNTAX.MOVE_LEFT:
                 case SYNTAX.MOVE_RIGHT:
+                case SYNTAX.MOVE_LEFT:
                 case SYNTAX.PRINT:
                 case SYNTAX.INSERT:
-                    return (
-                        GenerateToken(tokenVal: tokenVal, tokenValType: tokenType, prevToken: prevToken),
-                        charOffset, 
-                        false
-                        );
-
-                case SYNTAX.LOOP_END:
-                    return (null, charOffset, true);
+                    return GenerateToken(
+                        tokenVal: 1,
+                        tokenValType: _enumDict[_currSyntaxFlag]
+                    );
 
                 case SYNTAX.LOOP_START:
-                    TokenNode newToken = GenerateToken(tokenVal: 0, tokenValType: tokenType, prevToken: prevToken);
+                    // increase offset to next part of syntax string:
+                    _syntaxOffset++;
 
-                    TokenNode newInnerScope = GenerateTokenList(syntaxStr, charOffset + 1);
-                    newToken.InnerScopeTokenList = newInnerScope;
+                    // generate inner scope:
+                    TokenNode innerScopeList = GenerateTokenList(syntaxStr);
 
-                    return (newToken, charOffset, false);
+                    // return new loop token with inner scope:
+                    return GenerateToken(
+                        tokenVal: 0,
+                        tokenValType: _enumDict[SYNTAX.LOOP_START],
+                        innerScopeList: innerScopeList
+                    );
 
-                default:
-                    // the NONE syntax flag type:
-                    return (null, charOffset, false);
+                default: // SYNTAX.NONE / SYNTAX.LOOP_END
+                    return null;
             }
         }
-        public static TokenNode GenerateTokenList(string syntaxStr, int offset = 0)
+        public static TokenNode GenerateTokenList(string syntaxStr, bool isInnerScopeList = true)
         {
-            // returns a tokeniesed list from a given string of tokenable code.
-            // case: given syntax offset is out of bounds. -> return null.
-            if (offset > syntaxStr.Length - 1) 
-                return null; 
-            
-            // init token list & syntax flag:
+            // generate a list of tokens from given syntax string.
             TokenNode tokenListHead = null, tokenCurrNode = null;
-            _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]);
+            _syntaxOffset = isInnerScopeList ? _syntaxOffset : 0; // init syntax offset (only at parse start).
+            _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[_syntaxOffset]); // set current syntax flag.
 
-            // move to first tokenable value:
-            SYNTAX nextSyntaxFlag;
-            for (nextSyntaxFlag = _currSyntaxFlag; offset < syntaxStr.Length && nextSyntaxFlag == SYNTAX.NONE; offset++)
+            // init offset at parse start.
+            // also, parse all none tokenable parts of syntax string from current start to next tokenable syntax.
+            int tempOffset; // to check offset change later.
+            for (tempOffset = _syntaxOffset; _syntaxOffset < syntaxStr.Length && _currSyntaxFlag == SYNTAX.NONE; _syntaxOffset++)
             {
-                nextSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]);
+                _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[_syntaxOffset]);
             }
 
-            // case: no tokenable value found. -> return null.
-            if (offset > syntaxStr.Length - 1 && nextSyntaxFlag == SYNTAX.NONE) 
-                return null;
-            if (nextSyntaxFlag == SYNTAX.NONE)
-                offset++;
+            bool isInnerScopeEnd = _currSyntaxFlag == SYNTAX.LOOP_END && isInnerScopeList; // case of end in inner scope.
+            if (_currSyntaxFlag == SYNTAX.NONE || isInnerScopeEnd) return null; // no parsable syntax found (possibly inside loop scope).
 
-            // create token list head node:
-            _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]);
-            (TokenNode newToken, int updatedOffset, bool isForceStop) result = SyntaxToToken(
-                _currSyntaxFlag,
-                1,
-                syntaxStr,
-                offset
-            );
-            tokenListHead = result.newToken;
-            tokenCurrNode = tokenListHead;
+            // set token list head:
+            tokenListHead = SyntaxToToken(syntaxStr);
+            _syntaxOffset += _syntaxOffset == tempOffset ? 1: 0; // after first token created - move to next syntax element in string (if not moved already).
 
-            // start tokenizing loop:
-            for (; offset < syntaxStr.Length && !result.isForceStop; offset++)
+            // set current node & start parse loop:
+            SYNTAX currSyntaxFlagTemp;
+            for (tokenCurrNode = tokenListHead; _syntaxOffset < syntaxStr.Length && tokenCurrNode != null; _syntaxOffset++)
             {
-                _currSyntaxFlag = GetSyntaxFlagFromChar(syntaxStr[offset]);
+                currSyntaxFlagTemp = GetSyntaxFlagFromChar(syntaxStr[_syntaxOffset]); // get current syntax flag.
 
-                if (_currSyntaxFlag == SYNTAX.NONE) continue;
-                if (tokenCurrNode.ValType == _enumDict[_currSyntaxFlag] && tokenCurrNode.ValType != TOKEN_VALUE_TYPE.LOOP_TOKEN)
+                // skip none tokenable syntax:
+                if (currSyntaxFlagTemp == SYNTAX.NONE)
+                    continue;
+                // increase token value if flag is same:
+                if (currSyntaxFlagTemp == _currSyntaxFlag)
                 {
                     tokenCurrNode.Value++;
                     continue;
                 }
 
-                result = SyntaxToToken(
-                    _currSyntaxFlag,
-                    1,
-                    syntaxStr,
-                    offset,
-                    tokenCurrNode
-                );
-                tokenCurrNode.Next = result.newToken;
-                offset = result.updatedOffset;
+                _currSyntaxFlag = currSyntaxFlagTemp; // flag changed.
+                tokenCurrNode.Next = SyntaxToToken(syntaxStr); // get new token
+
+                // compress tokens if possible
+                bool isNoneCompressableToken = tokenCurrNode.Next == null || tokenCurrNode.Next.ValType == TOKEN_VALUE_TYPE.LOOP_TOKEN;
+                if (!isNoneCompressableToken && tokenCurrNode.ValType == tokenCurrNode.Next.ValType)
+                {
+                    tokenCurrNode.Value += tokenCurrNode.Next.Value;
+                    tokenCurrNode.Next = null;
+                    continue;
+                }
+
+                tokenCurrNode = tokenCurrNode.Next; // change current token.
             }
 
-            // return final token list
+            // return generated token list:
             return tokenListHead;
         }
     }
@@ -281,7 +273,7 @@ namespace Brainf_ck_Compiler_Engine
         {
             // tokenies a given str of brainf#ck code.
             // returns a list of tokens, from which the actual code will be compiled
-            return Tokeniser.GenerateTokenList(brainFckSyntax);
+            return Tokeniser.GenerateTokenList(brainFckSyntax, isInnerScopeList: false);
         }
         private static string ParseTokens(TokenNode tokenList)
         {
