@@ -26,6 +26,7 @@ namespace Brainf_ck_Compiler_Engine
         // functions:
         private static string DuplicateSyntaxStr(string command, int duplicationAmount)
         {
+            // duplicate a given code line X amount of times. X is given duplication amount. 
             string result = "";
             for (int offset = 0; offset < duplicationAmount; result += command, offset++) ;
             return result;
@@ -51,15 +52,17 @@ namespace Brainf_ck_Compiler_Engine
                     char operation_index = token.ValType == TOKEN_VALUE_TYPE.MOVE_RIGHT_VAL ? '+' : '-';
                     return SOL_Str + $"{MAIN_ARR_INDEX_NAME} {operation_index}= {token.Value}" + EOL;
 
+                // print current array cell value:
                 case TOKEN_VALUE_TYPE.PRINT_TOKEN:
                     string printSyntaxStr = SOL_Str + $"printf(\"%c\", {MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])" + EOL;
                     return DuplicateSyntaxStr(printSyntaxStr, token.Value);
-                
+
+                // insert into current array cell value:
                 case TOKEN_VALUE_TYPE.INSERT_TOKEN:
                     string insertSyntaxStr = SOL_Str + $"scanf_s(\"%c\", &{MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])" + EOL;
                     return DuplicateSyntaxStr(insertSyntaxStr, token.Value);
 
-                // loop over array:
+                // create a loop:
                 default:
                     // start loop:
                     string loop = SOL_Str + $"while ({MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])";
@@ -98,8 +101,9 @@ namespace Brainf_ck_Compiler_Engine
                 SOL_Str + $"unsigned {MAIN_ARR_TYPE} {MAIN_ARR_NAME}[{MAIN_ARR_MAX_SIZE}] = " + "{0}" + EOL + // init brainf#ck main arr.
                 SOL_Str + $"unsigned {MAIN_ARR_INDEX_TYPE} {MAIN_ARR_INDEX_NAME} = 0" + EOL; // init brainf#ck main arr index.
 
-            mainInitStr += ParseTokenList(tokenList, SOL_Str);
+            mainInitStr += ParseTokenList(tokenList, SOL_Str); // add the compiled code to the main function code.
 
+            // init libreries & the main function. then, add the final compiled code into the main function.
             string codeInitStr =
                 "#include <stdio.h>" +
                 "\n\n" +
@@ -111,7 +115,7 @@ namespace Brainf_ck_Compiler_Engine
                 "\n" +
                 "}";
 
-            return codeInitStr;
+            return codeInitStr; // return the final initialised code.
         }
     }
 
@@ -261,6 +265,9 @@ namespace Brainf_ck_Compiler_Engine
                 tokenCurrNode = tokenCurrNode.Next; // change current token.
             }
 
+            // if exits due to loop end - will add twice to offset. thus, remove one from offset:
+            if (_currSyntaxFlag == SYNTAX.LOOP_END) _syntaxOffset--;
+
             // return generated token list:
             return tokenListHead;
         }
@@ -271,13 +278,12 @@ namespace Brainf_ck_Compiler_Engine
         // functions:
         private static TokenNode Tokenies(string brainFckSyntax)
         {
-            // tokenies a given str of brainf#ck code.
-            // returns a list of tokens, from which the actual code will be compiled
+            // returns a list of tokens, made from parsed brainf#ck code.
             return Tokeniser.GenerateTokenList(brainFckSyntax, isInnerScopeList: false);
         }
         private static string ParseTokens(TokenNode tokenList)
         {
-            // returns a string of parsed code, made from a given token list
+            // returns a string of compiled code, made from a given token list.
             return CodeParser.InitTokenParsing(tokenList);
         }
 
