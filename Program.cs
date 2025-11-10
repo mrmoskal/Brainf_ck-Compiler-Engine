@@ -8,25 +8,30 @@ namespace Brainf_ck_Compiler_Engine
 {
     internal class Program
     {
-        static void Main(string[] args)
+        private static void debug()
         {
+            // test 1:
             string brainCode = "dbfskdhzggvlfbliff2983876347```+++--->>><<<,,,...-+-+-";
             int testNum = 1;
             Console.WriteLine($"test {testNum}:\n" + "code ->\n" + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
             Console.WriteLine("\n");
-
+            
+            // test 2:
             brainCode = "+++ppp+++ppp+++nnn----ppp+++nnnjhshd+hhh++"; testNum++;
             Console.WriteLine($"test {testNum}:\n" + "code ->\n" + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
             Console.WriteLine("\n");
 
+            // test 3:
             brainCode = "[+++]"; testNum++;
             Console.WriteLine($"test {testNum}:\n" + "code ->\n" + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
             Console.WriteLine("\n");
 
+            // test 4:
             brainCode = "+++ppp[+++[---]---]ppp+++"; testNum++;
             Console.WriteLine($"test {testNum}:\n" + "code ->\n" + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
             Console.WriteLine("\n");
 
+            // test 5:
             brainCode =
                 "[\n" +
                 "this is an actual brainfuck script for printing hello world.\n" +
@@ -45,6 +50,11 @@ namespace Brainf_ck_Compiler_Engine
             testNum++;
             Console.WriteLine($"test {testNum}:\n" + "code ->\n" + brainCode + "\n" + BrainFckCompiler.ParseBrainFckCodeToString(brainCode));
             Console.WriteLine("\n");
+        }
+
+        static void Main(string[] args)
+        {
+            debug();
         }
     }
 }

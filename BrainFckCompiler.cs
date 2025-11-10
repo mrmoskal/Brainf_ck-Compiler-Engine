@@ -1,18 +1,27 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Net.NetworkInformation;
+using static System.Net.Mime.MediaTypeNames;
+using System.Reflection;
 
 namespace Brainf_ck_Compiler_Engine
 {
     public static class CodeParser
     {
         // vars:
+        // the code template file
+        private static readonly string CODE_TEMP_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "starter templates\\default.c");
+        private const string SET_MAX_SIZE_STR = "[SET_MAX_SIZE]"; // replace in file to set max array size.
+        private const string SET_CODE_STR = "[SET_CODE]"; // replace in file to set code in new file.
+
         // the main brainf#ck array:
         private const string MAIN_ARR_NAME = "mainArr";
-        private const string MAIN_ARR_TYPE = "char"; // in compelation, will always be unsigned (if ever not byte/short/int -> remove the unsigned prefix)
+        private const string MAIN_ARR_TYPE = "unsigend char"; // in compelation, will always be unsigned (if ever not byte/short/int -> remove the unsigned prefix)
         private const short MAIN_ARR_MAX_SIZE = 256;
 
         // the main brainf#ck array pointer (offset/index of main array)
@@ -24,6 +33,27 @@ namespace Brainf_ck_Compiler_Engine
         private const string SOL = "\t"; // SOL (start of line).
 
         // functions:
+        private static string GetCodeInit(string path)
+        {
+            // get the main code template and init nessesery parts.
+            string initCodeStr = "";
+            if (File.Exists(path))
+            {
+                initCodeStr = File.ReadAllText(path);
+            }
+            //Console.WriteLine($"=====\n{initCodeStr}\nreplace: {SET_MAX_SIZE_STR}, {SET_CODE_STR}\n=====");
+
+            initCodeStr = initCodeStr.Replace(SET_MAX_SIZE_STR, $"#default MAX_SIZE {MAIN_ARR_MAX_SIZE}"); // to init size of array.
+            initCodeStr = initCodeStr.Replace(SET_CODE_STR,
+                SOL + $"{MAIN_ARR_TYPE} {MAIN_ARR_NAME}[MAX_SIZE] = " + "{0}" + EOL +
+                SOL + $"{MAIN_ARR_INDEX_TYPE} {MAIN_ARR_INDEX_NAME} = 0" + EOL +
+                SET_CODE_STR
+            ); // init main array in code.
+
+            return initCodeStr;
+        }
+
+
         private static string DuplicateSyntaxStr(string command, int duplicationAmount)
         {
             // duplicate a given code line X amount of times. X is given duplication amount. 
@@ -94,27 +124,13 @@ namespace Brainf_ck_Compiler_Engine
             
             return parsedCode;
         }
-        public static string InitTokenParsing(TokenNode tokenList, string SOL_Str = SOL)
+        public static string InitTokenParsing(TokenNode tokenList, string path = "", bool is_def_path = true)
         {
             // returns a string of the complite parsed code from the given tokens.
-            string mainInitStr =
-                SOL_Str + $"unsigned {MAIN_ARR_TYPE} {MAIN_ARR_NAME}[{MAIN_ARR_MAX_SIZE}] = " + "{0}" + EOL + // init brainf#ck main arr.
-                SOL_Str + $"unsigned {MAIN_ARR_INDEX_TYPE} {MAIN_ARR_INDEX_NAME} = 0" + EOL; // init brainf#ck main arr index.
-
-            mainInitStr += ParseTokenList(tokenList, SOL_Str); // add the compiled code to the main function code.
-
-            // init libreries & the main function. then, add the final compiled code into the main function.
-            string codeInitStr =
-                "#include <stdio.h>" +
-                "\n\n" +
-                "void main()" +
-                "\n" +
-                "{" + 
-                "\n" +
-                mainInitStr +
-                "\n" +
-                "}";
-
+            string mainInitStr = GetCodeInit(is_def_path ? CODE_TEMP_PATH_DEFAULT : path); // init code start
+            string compiledCodeStr = ParseTokenList(tokenList); // get the compiled code as string.
+            
+            string codeInitStr = mainInitStr.Replace(SET_CODE_STR, compiledCodeStr); // add the compiled code to the main function code.
             return codeInitStr; // return the final initialised code.
         }
     }
