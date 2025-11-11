@@ -1,0 +1,14 @@
+[
+this is an actual brainfuck script for printing hello world.
+]
+++++++++++[>+++++++<-]>++. this prints the letter H
+<++++++++++[>+++<-]>-. this prints the letter e
++++++++<++[>.<-] this prints "ll"
+>+++. this prints the letter o
+>>+++[<+++++++++++>-]<-. this prints a space character
+++++++++>++++[<+++++++++++>-]<+++. this prints the letter W
+<. this prints the letter o
++++. this prints the letter r
+------. this prints the letter l
+--------. this prints the letter d
+[-]+++[<+++++++++++>-]<. prints the character !

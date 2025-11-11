@@ -54,7 +54,8 @@ namespace Brainf_ck_Compiler_Engine
 
         static void Main(string[] args)
         {
-            debug();
+            //debug();
+            BrainFckCompiler.ParseBrainFckCodeToPath();
         }
     }
 }

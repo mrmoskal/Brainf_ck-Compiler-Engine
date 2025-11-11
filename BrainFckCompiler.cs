@@ -14,12 +14,8 @@ namespace Brainf_ck_Compiler_Engine
     public static class CodeParser
     {
         // vars:
-        // the compiled result temp & output paths:
-        private static readonly string OUTPUT_TEMP_DIR_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "temp\\");
-        private static readonly string OUTPUT_COMPILED_DIR_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "output\\");
-
         // the code template default file path & relevent setings:
-        private static readonly string CODE_TEMP_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "starter templates\\default.c");
+        private static readonly string CODE_TEMP_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "templates\\default.c");
         private const string SET_MAX_SIZE_STR = "[SET_MAX_SIZE]"; // replace in file to set max array size.
         private const string SET_CODE_STR = "[SET_CODE]"; // replace in file to set code in new file.
 
@@ -127,10 +123,10 @@ namespace Brainf_ck_Compiler_Engine
             
             return parsedCode;
         }
-        public static string InitTokenParsing(TokenNode tokenList, string path = "", bool is_def_path = true)
+        public static string InitTokenParsing(TokenNode tokenList, string path = "")
         {
             // returns a string of the complite parsed code from the given tokens.
-            string mainInitStr = GetCodeInit(is_def_path ? CODE_TEMP_PATH_DEFAULT : path); // init code start
+            string mainInitStr = GetCodeInit(String.IsNullOrEmpty(path) ? CODE_TEMP_PATH_DEFAULT : path); // init code start
             string compiledCodeStr = ParseTokenList(tokenList); // get the compiled code as string.
             
             string codeInitStr = mainInitStr.Replace(SET_CODE_STR, compiledCodeStr); // add the compiled code to the main function code.
@@ -294,22 +290,63 @@ namespace Brainf_ck_Compiler_Engine
 
     public static class BrainFckCompiler
     {
+        // vars:
+        // the brainf#ck code file path:
+        private static readonly string INPUT_CODE_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "input\\temp.brainfck");
+        
+        // the code template default file path & relevent setings:
+        private static readonly string CODE_TEMP_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "templates\\default.c");
+
+        // the compiled result temp & output paths:
+        private static readonly string OUTPUT_TEMP_DIR_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "temp\\");
+        private static readonly string OUTPUT_COMPILED_DIR_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "output\\");
+
         // functions:
         private static TokenNode Tokenies(string brainFckSyntax)
         {
             // returns a list of tokens, made from parsed brainf#ck code.
             return Tokeniser.GenerateTokenList(brainFckSyntax, isInnerScopeList: false);
         }
-        private static string ParseTokens(TokenNode tokenList)
+        private static string ParseTokens(TokenNode tokenList, string path = "")
         {
             // returns a string of compiled code, made from a given token list.
-            return CodeParser.InitTokenParsing(tokenList);
+            return CodeParser.InitTokenParsing(tokenList, path);
         }
 
         public static string ParseBrainFckCodeToString(string brainFckSyntax)
         {
             // returns a parsed string from a string of brainf#ck code.
             return ParseTokens(Tokenies(brainFckSyntax));
+        }
+        public static void ParseBrainFckCodeToPath(string brainfuckFilePath = "", string compileCodeTemplatePath = "",
+            string compiledTempDirPath = "", string compiledOutputDirPath = "") 
+        {
+            // writes the parsed code from a given file with brainf#ck code.
+            // set path to files & directories correctly.
+            brainfuckFilePath = String.IsNullOrEmpty(brainfuckFilePath) ? INPUT_CODE_PATH_DEFAULT : brainfuckFilePath;
+            compileCodeTemplatePath = String.IsNullOrEmpty(compileCodeTemplatePath) ? CODE_TEMP_PATH_DEFAULT : compileCodeTemplatePath;
+            compiledTempDirPath = String.IsNullOrEmpty(compiledTempDirPath) ? OUTPUT_TEMP_DIR_PATH_DEFAULT : compiledTempDirPath;
+            compiledOutputDirPath = String.IsNullOrEmpty(compiledOutputDirPath) ? OUTPUT_COMPILED_DIR_PATH_DEFAULT : compiledOutputDirPath;
+
+            // get brainf#ck code from file:
+            string brainfuckCodeStr = "";
+            if (!File.Exists(brainfuckFilePath))
+            {
+                Console.WriteLine("brainf#ck file path incorrect, or no temp.brainfck file found in input directory...");
+                return;
+            }
+            brainfuckCodeStr = File.ReadAllText(brainfuckFilePath);
+
+            string compiledTempCode = ParseTokens(Tokenies(brainfuckCodeStr)); // compile brainf#ck code to temp code.
+            //write compiled temp code to compiled temp file:
+            if (!Directory.Exists(compiledTempDirPath))
+            {
+                Console.WriteLine("temp compile directory path doesn't exit...");
+                return;
+            }
+            File.WriteAllText(Path.Combine(compiledTempDirPath, "temp.c"), compiledTempCode);
+
+            // compile temp code to output file (at output path): [tbc]
         }
     }
 }
