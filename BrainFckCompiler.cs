@@ -14,7 +14,11 @@ namespace Brainf_ck_Compiler_Engine
     public static class CodeParser
     {
         // vars:
-        // the code template file
+        // the compiled result temp & output paths:
+        private static readonly string OUTPUT_TEMP_DIR_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "temp\\");
+        private static readonly string OUTPUT_COMPILED_DIR_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "output\\");
+
+        // the code template default file path & relevent setings:
         private static readonly string CODE_TEMP_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "starter templates\\default.c");
         private const string SET_MAX_SIZE_STR = "[SET_MAX_SIZE]"; // replace in file to set max array size.
         private const string SET_CODE_STR = "[SET_CODE]"; // replace in file to set code in new file.
@@ -52,7 +56,6 @@ namespace Brainf_ck_Compiler_Engine
 
             return initCodeStr;
         }
-
 
         private static string DuplicateSyntaxStr(string command, int duplicationAmount)
         {
