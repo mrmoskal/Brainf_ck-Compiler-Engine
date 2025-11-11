@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#default MAX_SIZE 256
+#define MAX_SIZE 256
 
 void main() {
 	unsigend char mainArr[MAX_SIZE] = {0};

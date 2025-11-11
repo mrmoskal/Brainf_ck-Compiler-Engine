@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using System.Net.NetworkInformation;
 using static System.Net.Mime.MediaTypeNames;
 using System.Reflection;
+using System.Diagnostics;
+using System.Linq.Expressions;
 
 namespace Brainf_ck_Compiler_Engine
 {
@@ -15,7 +17,8 @@ namespace Brainf_ck_Compiler_Engine
     {
         // vars:
         // the code template default file path & relevent setings:
-        private static readonly string CODE_TEMP_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "templates\\default.c");
+        private static readonly string _codeTempPathDefault = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "templates\\default.c");
+        private const string CODE_TEMP_FILE_TYPE = ".c";
         private const string SET_MAX_SIZE_STR = "[SET_MAX_SIZE]"; // replace in file to set max array size.
         private const string SET_CODE_STR = "[SET_CODE]"; // replace in file to set code in new file.
 
@@ -37,13 +40,12 @@ namespace Brainf_ck_Compiler_Engine
         {
             // get the main code template and init nessesery parts.
             string initCodeStr = "";
-            if (File.Exists(path))
+            if (File.Exists(path) && Path.GetExtension(path)?.ToLower() == CODE_TEMP_FILE_TYPE)
             {
                 initCodeStr = File.ReadAllText(path);
             }
-            //Console.WriteLine($"=====\n{initCodeStr}\nreplace: {SET_MAX_SIZE_STR}, {SET_CODE_STR}\n=====");
 
-            initCodeStr = initCodeStr.Replace(SET_MAX_SIZE_STR, $"#default MAX_SIZE {MAIN_ARR_MAX_SIZE}"); // to init size of array.
+            initCodeStr = initCodeStr.Replace(SET_MAX_SIZE_STR, $"#define MAX_SIZE {MAIN_ARR_MAX_SIZE}"); // to init size of array.
             initCodeStr = initCodeStr.Replace(SET_CODE_STR,
                 SOL + $"{MAIN_ARR_TYPE} {MAIN_ARR_NAME}[MAX_SIZE] = " + "{0}" + EOL +
                 SOL + $"{MAIN_ARR_INDEX_TYPE} {MAIN_ARR_INDEX_NAME} = 0" + EOL +
@@ -51,6 +53,67 @@ namespace Brainf_ck_Compiler_Engine
             ); // init main array in code.
 
             return initCodeStr;
+        }
+
+        private static string GetArrCellOperationSyntaxStr(TokenNode token, string SOL_Str)
+        {
+            // add/subtract value to/from array cell.
+            char operator_chr = token.ValType == TOKEN_VALUE_TYPE.ADD_NUM_VAL ? '+' : '-';
+            string cellOperatorSyntaxStr = 
+                SOL_Str + 
+                $"{MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}] {operator_chr}= {token.Value}" 
+                + EOL;
+
+            return cellOperatorSyntaxStr;
+        }
+        private static string GetArrIndexOperationSyntaxStr(TokenNode token, string SOL_Str)
+        {
+            // add/subtract value to/from array index.
+            char operator_chr = token.ValType == TOKEN_VALUE_TYPE.ADD_NUM_VAL ? '+' : '-';
+            string indexOperatorSyntaxStr =
+                SOL_Str +
+                $"{MAIN_ARR_INDEX_NAME} {operator_chr}= {token.Value}"
+                + EOL;
+
+            return indexOperatorSyntaxStr;
+        }
+        private static string GetInputFunctionSyntaxStr(string SOL_Str)
+        {
+            // return the syntax for input functions in the compiled code.
+            string inputSyntaxStr = 
+                SOL_Str + 
+                $"scanf_s(\"%c\", &{MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])" 
+                + EOL;
+
+            return inputSyntaxStr;
+        }
+        private static string GetOutputFunctionSyntaxStr(string SOL_Str)
+        {
+            // return the syntax for output functions in the compiled code.
+            string inputSyntaxStr = 
+                SOL_Str + 
+                $"printf(\"%c\", {MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])" 
+                + EOL;
+
+            return inputSyntaxStr;
+        }
+        private static string GetLoopSyntaxStr(string innerCodeStr, string SOL_Str)
+        {
+            // get loop syntax string.
+            string loop = SOL_Str + $"while ({MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])"; // loop start.
+
+            // start loop nessting:
+            loop += SOL_Str + "{";
+            loop += "\n";
+
+            // insert loop innner scope:
+            loop += innerCodeStr;
+
+            // end loop nessting:
+            loop += SOL_Str + "}";
+            loop += "\n";
+
+            return loop; // the resulting loop code.
         }
 
         private static string DuplicateSyntaxStr(string command, int duplicationAmount)
@@ -61,7 +124,7 @@ namespace Brainf_ck_Compiler_Engine
             return result;
         }
 
-        public static string ParseToken(TokenNode token, string SOL_Str = SOL)
+        public static string ParseToken(TokenNode token, string SOL_Str=SOL)
         {
             // return a string of the parsed code from the given token.
             if (token == null) return ""; // check token was given.
@@ -69,48 +132,26 @@ namespace Brainf_ck_Compiler_Engine
 
             switch (token.ValType)
             {
-                // add/subtract value from array cell:
                 case TOKEN_VALUE_TYPE.ADD_NUM_VAL:
                 case TOKEN_VALUE_TYPE.SUB_NUM_VAL:
-                    char operation_arr = token.ValType == TOKEN_VALUE_TYPE.ADD_NUM_VAL ? '+' : '-';
-                    return SOL_Str + $"{MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}] {operation_arr}= {token.Value}" + EOL;
+                    return GetArrCellOperationSyntaxStr(token, SOL_Str);
 
-                // add/subtract from array index:
                 case TOKEN_VALUE_TYPE.MOVE_LEFT_VAL:
                 case TOKEN_VALUE_TYPE.MOVE_RIGHT_VAL:
-                    char operation_index = token.ValType == TOKEN_VALUE_TYPE.MOVE_RIGHT_VAL ? '+' : '-';
-                    return SOL_Str + $"{MAIN_ARR_INDEX_NAME} {operation_index}= {token.Value}" + EOL;
+                    return GetArrIndexOperationSyntaxStr(token, SOL_Str);
 
-                // print current array cell value:
                 case TOKEN_VALUE_TYPE.PRINT_TOKEN:
-                    string printSyntaxStr = SOL_Str + $"printf(\"%c\", {MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])" + EOL;
-                    return DuplicateSyntaxStr(printSyntaxStr, token.Value);
+                    return DuplicateSyntaxStr(GetOutputFunctionSyntaxStr(SOL_Str), token.Value);
 
-                // insert into current array cell value:
                 case TOKEN_VALUE_TYPE.INSERT_TOKEN:
-                    string insertSyntaxStr = SOL_Str + $"scanf_s(\"%c\", &{MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])" + EOL;
-                    return DuplicateSyntaxStr(insertSyntaxStr, token.Value);
+                    return DuplicateSyntaxStr(GetInputFunctionSyntaxStr(SOL_Str), token.Value);
 
                 // create a loop:
                 default:
-                    // start loop:
-                    string loop = SOL_Str + $"while ({MAIN_ARR_NAME}[{MAIN_ARR_INDEX_NAME}])";
-                    
-                    // start loop nessting:
-                    loop += SOL_Str + "{";
-                    loop += "\n";
-
-                    // insert loop innner scope:
-                    loop += ParseTokenList(token.InnerScopeTokenList, SOL_Str + SOL);
-
-                    // end loop nessting:
-                    loop += SOL_Str + "}";
-                    loop += "\n";
-                    
-                    return loop; // the resulting loop code.
+                    return GetLoopSyntaxStr(ParseTokenList(token.InnerScopeTokenList, SOL_Str + SOL), SOL_Str);
             }
         }
-        public static string ParseTokenList(TokenNode tokenList, string SOL_Str = SOL)
+        public static string ParseTokenList(TokenNode tokenList, string SOL_Str=SOL)
         {
             // returns a string cotaining paresed code, made from a given token list.
             string parsedCode = "";    
@@ -123,14 +164,13 @@ namespace Brainf_ck_Compiler_Engine
             
             return parsedCode;
         }
-        public static string InitTokenParsing(TokenNode tokenList, string path = "")
+        public static string InitTokenParsing(TokenNode tokenList, string path="")
         {
             // returns a string of the complite parsed code from the given tokens.
-            string mainInitStr = GetCodeInit(String.IsNullOrEmpty(path) ? CODE_TEMP_PATH_DEFAULT : path); // init code start
+            string mainInitStr = GetCodeInit(String.IsNullOrEmpty(path) ? _codeTempPathDefault : path);
             string compiledCodeStr = ParseTokenList(tokenList); // get the compiled code as string.
             
-            string codeInitStr = mainInitStr.Replace(SET_CODE_STR, compiledCodeStr); // add the compiled code to the main function code.
-            return codeInitStr; // return the final initialised code.
+            return mainInitStr.Replace(SET_CODE_STR, compiledCodeStr);
         }
     }
 
@@ -291,9 +331,10 @@ namespace Brainf_ck_Compiler_Engine
     public static class BrainFckCompiler
     {
         // vars:
-        // the brainf#ck code file path:
+        // the brainf#ck code file path & relevent settings:
         private static readonly string INPUT_CODE_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "input\\temp.brainfck");
-        
+        private const string INPUT_CODE_FILE_TYPE = ".brainfck";
+
         // the code template default file path & relevent setings:
         private static readonly string CODE_TEMP_PATH_DEFAULT = Path.Combine(Directory.GetCurrentDirectory().Replace("\\bin\\Debug", ""), "templates\\default.c");
 
@@ -307,7 +348,7 @@ namespace Brainf_ck_Compiler_Engine
             // returns a list of tokens, made from parsed brainf#ck code.
             return Tokeniser.GenerateTokenList(brainFckSyntax, isInnerScopeList: false);
         }
-        private static string ParseTokens(TokenNode tokenList, string path = "")
+        private static string ParseTokens(TokenNode tokenList, string path="")
         {
             // returns a string of compiled code, made from a given token list.
             return CodeParser.InitTokenParsing(tokenList, path);
@@ -318,24 +359,28 @@ namespace Brainf_ck_Compiler_Engine
             // returns a parsed string from a string of brainf#ck code.
             return ParseTokens(Tokenies(brainFckSyntax));
         }
-        public static void ParseBrainFckCodeToPath(string brainfuckFilePath = "", string compileCodeTemplatePath = "",
-            string compiledTempDirPath = "", string compiledOutputDirPath = "") 
+        public static void ParseBrainFckCodeToPath(string brainfuckFilePath="", string compileCodeTemplatePath="",
+            string compiledTempDirPath="", string compiledOutputDirPath="")
         {
             // writes the parsed code from a given file with brainf#ck code.
             // set path to files & directories correctly.
-            brainfuckFilePath = String.IsNullOrEmpty(brainfuckFilePath) ? INPUT_CODE_PATH_DEFAULT : brainfuckFilePath;
-            compileCodeTemplatePath = String.IsNullOrEmpty(compileCodeTemplatePath) ? CODE_TEMP_PATH_DEFAULT : compileCodeTemplatePath;
-            compiledTempDirPath = String.IsNullOrEmpty(compiledTempDirPath) ? OUTPUT_TEMP_DIR_PATH_DEFAULT : compiledTempDirPath;
-            compiledOutputDirPath = String.IsNullOrEmpty(compiledOutputDirPath) ? OUTPUT_COMPILED_DIR_PATH_DEFAULT : compiledOutputDirPath;
+            if (String.IsNullOrEmpty(brainfuckFilePath)) brainfuckFilePath = INPUT_CODE_PATH_DEFAULT;
+            if (String.IsNullOrEmpty(compileCodeTemplatePath)) compileCodeTemplatePath = CODE_TEMP_PATH_DEFAULT;
+            if (String.IsNullOrEmpty(compiledTempDirPath)) compiledTempDirPath = OUTPUT_TEMP_DIR_PATH_DEFAULT;
+            if (String.IsNullOrEmpty(compiledOutputDirPath)) compiledOutputDirPath = OUTPUT_COMPILED_DIR_PATH_DEFAULT;
 
             // get brainf#ck code from file:
-            string brainfuckCodeStr = "";
-            if (!File.Exists(brainfuckFilePath))
+            bool isFileNotExist = !File.Exists(brainfuckFilePath);
+            if (isFileNotExist || !(Path.GetExtension(brainfuckFilePath)?.ToLower() == INPUT_CODE_FILE_TYPE))
             {
-                Console.WriteLine("brainf#ck file path incorrect, or no temp.brainfck file found in input directory...");
+                Console.WriteLine(
+                    isFileNotExist ? 
+                    "brainf#ck file path incorrect, or no temp.brainfck file found in input directory..." :
+                    "given brainf#ck code file has type that isn't '.brainfck'. please refactor file, or supply new file path"
+                );
                 return;
             }
-            brainfuckCodeStr = File.ReadAllText(brainfuckFilePath);
+            string brainfuckCodeStr = File.ReadAllText(brainfuckFilePath);
 
             string compiledTempCode = ParseTokens(Tokenies(brainfuckCodeStr)); // compile brainf#ck code to temp code.
             //write compiled temp code to compiled temp file:
@@ -344,9 +389,9 @@ namespace Brainf_ck_Compiler_Engine
                 Console.WriteLine("temp compile directory path doesn't exit...");
                 return;
             }
-            File.WriteAllText(Path.Combine(compiledTempDirPath, "temp.c"), compiledTempCode);
+            File.WriteAllText(Path.Combine(compiledTempDirPath, "temp.c"), compiledTempCode); // eather creates new file, or writes to exsiting file.
 
-            // compile temp code to output file (at output path): [tbc]
+            // compile temp code to output file (at output path): [TODO]
         }
     }
 }
